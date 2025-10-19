@@ -1,0 +1,47 @@
+name: Daily repository heartbeat
+
+# required permission to push commits
+permissions:
+  contents: write
+
+on:
+  schedule:
+    # Cron runs are in UTC. This example runs once per day at 02:15 UTC (replace with your desired exact hour/minute)
+    - cron: '15 2 * * *'
+  # allow manual triggering from Actions UI for immediate testing
+  workflow_dispatch: {}
+
+jobs:
+  daily-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # allow the job to use GITHUB_TOKEN for pushing
+          persist-credentials: true
+
+      - name: Create updates folder and append timestamp
+        # This step will add or update a small file so there is something to commit
+        run: |
+          mkdir -p updates
+          echo "Daily heartbeat: $(date -u +"%Y-%m-%d %H:%M:%SZ")" >> updates/daily_update.txt
+          git add updates/daily_update.txt
+          # determine branch name from GITHUB_REF
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          git status --porcelain
+          # set commit author name and email (email required in the step name as well)
+          git config user.name "DevSync Bot"
+          git config user.email "23f2000680@ds.study.iitm.ac.in"
+          # commit only if there are changes
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "Automated daily update: $(date -u +"%Y-%m-%d")"
+          # Push to the same branch the workflow is running on
+          git push origin "HEAD:${BRANCH}"
+
+      - name: Commit changes - 23f2000680@ds.study.iitm.ac.in
+        # This step intentionally has your email in the step name as requested.
+        run: echo "Commit step completed at $(date -u +"%Y-%m-%d %H:%M:%SZ")"
